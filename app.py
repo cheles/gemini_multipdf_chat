@@ -46,17 +46,16 @@ def get_vector_store(chunks):
 
 def get_conversational_chain():
     prompt_template = """
-    Answer the question as detailed as possible from the provided context, make sure to provide all the details, if the answer is not in
-    provided context just say, "answer is not available in the context", don't provide the wrong answer\n\n
-    Context:\n {context}?\n
-    Question: \n{question}\n
+    Answer the question as detailed as possible. Use both your own knowledge and also the provided context. Make sure to prioritize the information existing in the provided context. \n\n
+    Context:\n {context}\n
+    Question: \n{question}?\n
 
     Answer:
     """
-
-    model = ChatGoogleGenerativeAI(model="gemini-pro",
+#If the answer is not in the provided context say "from what I know" and continue the answer from your own knowledge.
+    model = ChatGoogleGenerativeAI(model="models/gemini-1.0-pro-latest",
                                    client=genai,
-                                   temperature=0.3,
+                                   temperature=1.0,
                                    )
     prompt = PromptTemplate(template=prompt_template,
                             input_variables=["context", "question"])
@@ -93,10 +92,10 @@ def main():
 
     # Sidebar for uploading PDF files
     with st.sidebar:
-        st.title("Menu:")
+        st.title("Configuration")
         pdf_docs = st.file_uploader(
-            "Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True)
-        if st.button("Submit & Process"):
+            "Select some PDF Files:", accept_multiple_files=True)
+        if st.button("Upload selected PDF files"):
             with st.spinner("Processing..."):
                 raw_text = get_pdf_text(pdf_docs)
                 text_chunks = get_text_chunks(raw_text)
