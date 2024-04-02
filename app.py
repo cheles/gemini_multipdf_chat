@@ -17,12 +17,11 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 # read all pdf files and return text
 
 
-def get_pdf_text(pdf_docs):
+def get_all_text_of_all_pdfs(pdf_docs):
     text = ""
     for pdf in pdf_docs:
         pdf_reader = PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text += page.extract_text()
+        text += "\n\n".join(page.extract_text() for page in pdf_reader.pages)
     return text
 
 # split text into chunks
@@ -97,7 +96,7 @@ def main():
             "Select some PDF Files:", accept_multiple_files=True)
         if st.button("Upload selected PDF files"):
             with st.spinner("Processing..."):
-                raw_text = get_pdf_text(pdf_docs)
+                raw_text = get_all_text_of_all_pdfs(pdf_docs)
                 text_chunks = get_text_chunks(raw_text)
                 get_vector_store(text_chunks)
                 st.success("Done")
