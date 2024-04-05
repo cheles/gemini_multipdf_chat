@@ -15,43 +15,40 @@ os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # read all pdf files and return text
-
-
-def get_all_text_of_all_pdfs(pdf_docs):
-    text = ""
+def get_all_text_from_all_pdfs(pdf_docs):
+    all_text_from_all_pdfs = ""
     for pdf in pdf_docs:
         pdf_reader = PdfReader(pdf)
-        text += "\n\n".join(page.extract_text() for page in pdf_reader.pages)
-    return text
+        all_text_from_all_pdfs += "\n\n".join(page.extract_text() for page in pdf_reader.pages)
+    return all_text_from_all_pdfs
 
 # split text into chunks
-
-
-def get_text_chunks(text):
+def get_text_chunks(all_text_from_all_pdfs):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=10000, chunk_overlap=1000)
-    chunks = splitter.split_text(text)
-    return chunks  # list of strings
+    text_chunks = splitter.split_text(all_text_from_all_pdfs)
+    return text_chunks  # list of strings
 
-# get embeddings for each chunk
-
-
-def get_vector_store(chunks):
+# get embeddings for each text chunk
+def get_vector_store_index_with_the_embeddings_for_each_text_chunk(text_chunks):
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/embedding-001")  # type: ignore
-    vector_store = FAISS.from_texts(chunks, embedding=embeddings)
+    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
 
 
 def get_conversational_chain():
     prompt_template = """
-    Answer the question as detailed as possible. Use both your own knowledge and also the provided context. Make sure to prioritize the information existing in the provided context. \n\n
-    Context:\n {context}\n
-    Question: \n{question}?\n
+    Your ROLE: You are an expert helping his colleagues. You work in a private company and you use all your knowledge, not only the provided Context, to provide the best answers to your colleagues.\n\n
+    
+    Your TASK: Answer the question as detailed as possible, suggesting multiple approaches and viewing the issue from many angles to help your colleagues think of new ways to approach the issue by triggering their imagination with unforseen links and concepts. Also, always add to the answer interesting new topics related to the question, say "Also, here are some interesting topics to think about:"\n\n
+
+    Context:\n {context}\n\n
+    Question: \n{question}?\n\n
 
     Answer:
     """
-#If the answer is not in the provided context say "from what I know" and continue the answer from your own knowledge.
+
     model = ChatGoogleGenerativeAI(model="models/gemini-1.0-pro-latest",
                                    client=genai,
                                    temperature=1.0,
@@ -64,20 +61,29 @@ def get_conversational_chain():
 
 def clear_chat_history():
     st.session_state.messages = [
-        {"role": "assistant", "content": "upload some pdfs and ask me a question"}]
+        {
+            "role": "assistant",
+            "content": "Hi, nice to meet you! Give me some PDFs to read, using the Browse + Read buttons on the left side of the screen, then let's discuss about them."
+        }
+    ]
 
 
-def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(
+def respond_to_question(user_question):
+    google_genai_embeddings = GoogleGenerativeAIEmbeddings(
         model="models/embedding-001")  # type: ignore
 
-    new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True) 
-    docs = new_db.similarity_search(user_question)
+    new_db = FAISS.load_local("faiss_index", google_genai_embeddings, allow_dangerous_deserialization=True) 
+    relevant_text_chunks = new_db.similarity_search(user_question)
 
     chain = get_conversational_chain()
 
     response = chain(
-        {"input_documents": docs, "question": user_question}, return_only_outputs=True, )
+        {
+            "input_documents": relevant_text_chunks, 
+            "question": user_question
+        }, 
+        return_only_outputs=True
+    )
 
     print(response)
     return response
@@ -85,33 +91,32 @@ def user_input(user_question):
 
 def main():
     st.set_page_config(
-        page_title="Gemini PDF Chatbot",
+        page_title="TiFchat",
         page_icon="🤖"
     )
 
     # Sidebar for uploading PDF files
     with st.sidebar:
-        st.title("Configuration")
-        pdf_docs = st.file_uploader(
+        st.title("Library - Biblioteca")
+        uploaded_pdf_docs = st.file_uploader(
             "Select some PDF Files:", accept_multiple_files=True)
-        if st.button("Upload selected PDF files"):
-            with st.spinner("Processing..."):
-                raw_text = get_all_text_of_all_pdfs(pdf_docs)
-                text_chunks = get_text_chunks(raw_text)
-                get_vector_store(text_chunks)
-                st.success("Done")
+        if st.button("Read and understand the selected PDF files"):
+            with st.spinner("Reading and understanding the PDFs..."):
+                all_text_from_all_pdfs = get_all_text_from_all_pdfs(uploaded_pdf_docs)
+                text_chunks = get_text_chunks(all_text_from_all_pdfs)
+                get_vector_store_index_with_the_embeddings_for_each_text_chunk(text_chunks)
+                st.success("Done! I've read everything and also wrote my personal notes about what I've read, as embeddings in a local vector store!") # "personal notes" = faiss_index
 
     # Main content area for displaying chat messages
-    st.title("Chat with PDF files using Gemini🤖")
-    st.write("Welcome to the chat!")
+    st.title("Discussion regarding the PDFs in the library")
+    st.write("")
     st.sidebar.button('Clear Chat History', on_click=clear_chat_history)
 
     # Chat input
     # Placeholder for chat messages
 
     if "messages" not in st.session_state.keys():
-        st.session_state.messages = [
-            {"role": "assistant", "content": "upload some pdfs and ask me a question"}]
+        clear_chat_history()
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -125,8 +130,8 @@ def main():
     # Display chat messages and bot response
     if st.session_state.messages[-1]["role"] != "assistant":
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = user_input(prompt)
+            with st.spinner("You're so curious! Ok, let me think..."):
+                response = respond_to_question(prompt)
                 placeholder = st.empty()
                 full_response = ''
                 for item in response['output_text']:
