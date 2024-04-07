@@ -1,7 +1,20 @@
+
+https://marcel.streamlit.app/
+
+Marcel is your work-colleague and can discuss with you regarding the content of the PDF you upload.
+
+Initially forked from: https://github.com/kaifcoder/gemini_multipdf_chat
+
+Improvements from the initial repo:
+- changed entirely how Langchain is used to enable Marcel to take into account all the conversation not only the current question;
+- changed prompt;
+- code refactoring;
+- removed "clear chat history"
+
+
 # Gemini PDF Chatbot
 
 Gemini PDF Chatbot is a Streamlit-based application that allows users to chat with a conversational AI model trained on PDF documents. The chatbot extracts information from uploaded PDF files and answers user questions based on the provided context.
-<https://gmultichat.streamlit.app/>
 
 <https://github.com/kaifcoder/gemini_multipdf_chat/assets/57701861/f6a841af-a92d-4e54-a4fd-4a52117e17f6>
 
