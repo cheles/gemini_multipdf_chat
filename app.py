@@ -13,10 +13,25 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.memory import ChatMessageHistory
 from typing import Dict
 from langchain_core.runnables import RunnablePassthrough
+from langchain_community.document_loaders import SeleniumURLLoader
+
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
+
+def ingest_list_of_urls(list_of_urls):
+    '''
+    Function Scope: This function takes as input a list of URLs and returns the text from the corresponding web pages.
+    
+    Info: Using Selenium enables us to handle the web pages that require JavaScript to render the content.
+    '''
+    loader = SeleniumURLLoader(urls=list_of_urls)
+    texts_from_urls = loader.load()
+    # texts_from_urls is a list of strings. to access the text from the first url use: texts_from_urls[0]
+
+    return texts_from_urls
 
 
 def get_all_text_from_all_pdfs(pdf_docs):
@@ -129,9 +144,12 @@ def parse_retriever_input(params: Dict):
     return last_message
 
 
-def create_vector_store_index(uploaded_pdf_docs, google_genai_embeddings):
-    all_text_from_all_pdfs = get_all_text_from_all_pdfs(uploaded_pdf_docs)
-    all_text_chunks = get_text_chunks(all_text_from_all_pdfs)
+def create_vector_store_index(text_from_urls, uploaded_pdf_docs, google_genai_embeddings):
+    text_from_pdfs = get_all_text_from_all_pdfs(uploaded_pdf_docs)
+
+    all_ingested_text = text_from_pdfs + ' '.join(text_from_urls)
+
+    all_text_chunks = get_text_chunks(all_ingested_text)
     
     # generate vector store index with the embeddings of each text chunk
     vector_store_index = FAISS.from_texts(
@@ -164,7 +182,6 @@ def main():
         As this is my first day working here, please give me some PDF documents to read. You can use the buttons on the left side of the screen to send me PDF files. You'll see, I can read them very fast! Then we can discuss on the content of the documents, if you want.
     """
 
-
     # preload google embeddings
     google_genai_embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
@@ -176,14 +193,28 @@ def main():
     if 'ephemeral_chat_history' not in ui_streamlit.session_state:
         ui_streamlit.session_state.ephemeral_chat_history = ChatMessageHistory()
 
-    # Sidebar for uploading PDF files
+    # Sidebar
     with ui_streamlit.sidebar:
         ui_streamlit.title("Marcel's Library - Biblioteca lui Marcel")
+
+        # Text area for URLs
+        url_text_area = ui_streamlit.text_area("Enter a list of URLs, only one per line:")
+
+        # File uploader for PDFs
         uploaded_pdf_docs = ui_streamlit.file_uploader(
             "Upload some PDFs:", accept_multiple_files=True)
-        if ui_streamlit.button("Marcel, please read the above PDFs!"):
-            with ui_streamlit.spinner("Ok, I'm reading and understanding the PDFs!"):
-                create_vector_store_index(uploaded_pdf_docs, google_genai_embeddings)
+        
+        # Button
+        if ui_streamlit.button("Marcel, please read the provided content!"):
+            with ui_streamlit.spinner("Ok, I'm reading and understanding the content from the web page URLs and the PDFs you provided!"):
+                
+                # Convert the string containing URLs into a list
+                list_of_urls = url_text_area.split('\n')
+
+                # get a string containing all the text content of the webpages referenced by the list of URLs
+                text_from_urls = ingest_list_of_urls(list_of_urls)
+
+                create_vector_store_index(text_from_urls, uploaded_pdf_docs, google_genai_embeddings)
                 ui_streamlit.success("Done! I've read each PDF file and also wrote my personal notes about what I've read!") # "personal notes" = embeddings in a local vector store saved as faiss_vector_store_index folder
 
     # Main content area for displaying chat messages
