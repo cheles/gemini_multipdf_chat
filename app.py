@@ -66,7 +66,7 @@ def create_document_chain():
     chat_ai_model = ChatGoogleGenerativeAI(
         model="models/gemini-1.0-pro-latest",
         client=genai,
-        temperature=1.0
+        temperature=0.5
     )
 
     document_chain = create_stuff_documents_chain(
@@ -152,12 +152,12 @@ def get_vector_store_index(google_genai_embeddings):
 
 def main():
     ui_streamlit.set_page_config(
-        page_title="Marcel - your work colleague",
+        page_title="Cornel - your work colleague",
         page_icon="🤖"
     )
 
     initial_message_from_marcel = """
-        Hi, I'm Marcel! We work in the same team in this company. It is so nice to meet you!
+        Hi, I'm Cornel! We work in the same team in this company. It is so nice to meet you!
         
         We will only interact through this interface at first, as I prefer to work from home, at least for now.
         
@@ -178,10 +178,10 @@ def main():
 
     # Sidebar for uploading PDF files
     with ui_streamlit.sidebar:
-        ui_streamlit.title("Marcel's Library - Biblioteca lui Marcel")
+        ui_streamlit.title("Cornel's Library - Biblioteca lui Cornel")
         uploaded_pdf_docs = ui_streamlit.file_uploader(
             "Upload some PDFs:", accept_multiple_files=True)
-        if ui_streamlit.button("Marcel, please read the above PDFs!"):
+        if ui_streamlit.button("Cornel, please read the above PDFs!"):
             with ui_streamlit.spinner("Ok, I'm reading and understanding the PDFs!"):
                 create_vector_store_index(uploaded_pdf_docs, google_genai_embeddings)
                 ui_streamlit.success("Done! I've read each PDF file and also wrote my personal notes about what I've read!") # "personal notes" = embeddings in a local vector store saved as faiss_vector_store_index folder
@@ -209,7 +209,7 @@ def main():
     # Display chat messages and bot response
     if ui_streamlit.session_state.messages[-1]["role"] != "work-colleague":
         with ui_streamlit.chat_message("work-colleague"):
-            with ui_streamlit.spinner("Marcel is typing..."):
+            with ui_streamlit.spinner("Cornel is typing..."):
                 response_from_ai = generate_answer(
                     text_input_from_user, 
                     document_chain, 
